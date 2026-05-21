@@ -34,13 +34,22 @@ jobs:
           echo "VERSION_NAME=$(grep "versionName" smarttubetv/build.gradle | head -n 1 | awk -F'"' '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Configure Build Signing
-        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
         run: |
-          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > keystore.properties
-          echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
-          echo "storeFile=${{ github.workspace }}/key.jks" >> keystore.properties
-          echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > ${{ github.workspace }}/key.jks
+          if [ "${{ env.HAS_SIGNING_KEY }}" = "true" ]; then
+            echo "Using custom signing secrets..."
+            echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > keystore.properties
+            echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+            echo "storeFile=${{ github.workspace }}/key.jks" >> keystore.properties
+            echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > ${{ github.workspace }}/key.jks
+          else
+            echo "No custom signing key found. Generating automated debug key..."
+            keytool -genkey -v -keystore ${{ github.workspace }}/key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+            echo "storePassword=android" > keystore.properties
+            echo "keyAlias=androiddebugkey" >> keystore.properties
+            echo "keyPassword=android" >> keystore.properties
+            echo "storeFile=${{ github.workspace }}/key.jks" >> keystore.properties
+          fi
      
       - name: Grant Gradle permissions
         run: chmod +x gradlew
